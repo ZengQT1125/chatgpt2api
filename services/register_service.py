@@ -21,7 +21,7 @@ def _now() -> str:
 
 
 def _default_config() -> dict:
-    return {**openai_register.config, "mode": "total", "target_quota": 100, "target_available": 10, "check_interval": 5, "enabled": False, "stats": {"success": 0, "fail": 0, "done": 0, "running": 0, "threads": openai_register.config["threads"], "elapsed_seconds": 0, "avg_seconds": 0, "success_rate": 0, "current_quota": 0, "current_available": 0}}
+    return {**openai_register.config, "mode": "total", "target_quota": 100, "target_available": 10, "check_interval": 5, "enabled": False, "max_consecutive_failures": 5, "stats": {"success": 0, "fail": 0, "done": 0, "running": 0, "threads": openai_register.config["threads"], "elapsed_seconds": 0, "avg_seconds": 0, "success_rate": 0, "current_quota": 0, "current_available": 0}}
 
 
 def _normalize(raw: dict) -> dict:
@@ -35,6 +35,7 @@ def _normalize(raw: dict) -> dict:
     cfg["check_interval"] = max(1, int(cfg.get("check_interval") or 5))
     cfg["proxy"] = str(cfg.get("proxy") or "").strip()
     cfg["enabled"] = bool(cfg.get("enabled"))
+    cfg["max_consecutive_failures"] = max(0, int(cfg.get("max_consecutive_failures") if cfg.get("max_consecutive_failures") is not None else 5))
     stats = {**_default_config()["stats"], **(raw.get("stats") if isinstance(raw.get("stats"), dict) else {}),
              "threads": cfg["threads"]}
     cfg["stats"] = stats
@@ -165,6 +166,7 @@ class RegisterService:
     def _run(self) -> None:
         threads = int(self.get()["threads"])
         submitted, done, success, fail = 0, 0, 0, 0
+        consecutive_failures = 0
         with ThreadPoolExecutor(max_workers=threads) as executor:
             futures = set()
             while True:
@@ -183,10 +185,22 @@ class RegisterService:
                     done += 1
                     try:
                         result = future.result()
-                        success += 1 if result.get("ok") else 0
-                        fail += 0 if result.get("ok") else 1
+                        is_ok = bool(result.get("ok"))
                     except Exception:
+                        is_ok = False
+                    
+                    if is_ok:
+                        success += 1
+                        consecutive_failures = 0
+                    else:
                         fail += 1
+                        consecutive_failures += 1
+                        max_fail_limit = int(cfg.get("max_consecutive_failures") or 0)
+                        if max_fail_limit > 0 and consecutive_failures >= max_fail_limit:
+                            self._append_log(f"连续 {consecutive_failures} 次注册失败，已达到最大限制 {max_fail_limit}，停止注册任务", "red")
+                            with self._lock:
+                                self._config["enabled"] = False
+                                self._save()
         self._bump(running=0, done=done, success=success, fail=fail, finished_at=_now())
         with self._lock:
             self._config["enabled"] = False
