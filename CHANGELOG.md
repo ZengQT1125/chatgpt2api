@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.5.1 - 2026-06-16
+
++ [新增] 注册机恢复最大连续失败数配置，连续失败达到限制后自动停止任务。
+
 ## 1.5.0 - 2026-06-13
 
 + [新增] 新增 WARP / Privoxy / FlareSolverr 清障方案，注册遇到 Cloudflare 拦截后可刷新 clearance 并重试。

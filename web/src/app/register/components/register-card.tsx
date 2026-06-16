@@ -22,6 +22,7 @@ export function RegisterCard() {
   const setTargetQuota = useSettingsStore((state) => state.setRegisterTargetQuota);
   const setTargetAvailable = useSettingsStore((state) => state.setRegisterTargetAvailable);
   const setCheckInterval = useSettingsStore((state) => state.setRegisterCheckInterval);
+  const setMaxConsecutiveFailures = useSettingsStore((state) => state.setRegisterMaxConsecutiveFailures);
   const setMailField = useSettingsStore((state) => state.setRegisterMailField);
   const addProvider = useSettingsStore((state) => state.addRegisterProvider);
   const updateProvider = useSettingsStore((state) => state.updateRegisterProvider);
@@ -121,6 +122,10 @@ export function RegisterCard() {
             <div className="space-y-2">
               <label className="text-sm text-stone-700">检查间隔（秒）</label>
               <Input value={String(config.check_interval || "")} onChange={(event) => setCheckInterval(event.target.value)} className="h-10 rounded-xl border-stone-200 bg-white" disabled={config.enabled || config.mode === "total"} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-stone-700">最大连续失败数（0表示不限制）</label>
+              <Input value={String(config.max_consecutive_failures ?? 5)} onChange={(event) => setMaxConsecutiveFailures(event.target.value)} className="h-10 rounded-xl border-stone-200 bg-white" disabled={config.enabled} />
             </div>
           </div>
 
